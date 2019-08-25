@@ -1,0 +1,286 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+
+```{r eval=FALSE, include=FALSE}
+plot(cars)
+```
+
+
+```{r eval=FALSE, include=FALSE}
+```
+
+
+Getting Started 
+Needed to first take the time to look at the datasets via the data dictionary conversion download to understand the meaning of each record column. 
+
+
+
+```{r}
+dat <- merge(MERGED2017_18_PP,MERGED2016_17_PP, by="INSTNM")
+ dat <- select(dat ,UNITID.x,INSTNM,OPEFLAG.x,UNITID.y, COSTT4_A.y,UGDS.y , NUM4_PUB.y , NUM4_PRIV.y , TUITFTE.y , NPT4_PUB.y , NPT4_PRIV.y ) 
+
+
+```
+
+```{r}
+#View first 6 rows of dat
+
+head(dat)
+
+```
+Data Processing
+The data has an extremely large amount of null values.  The 2016 dataset, for example, doesn't have Title IV records column at all. Combining 2017 and 2016 dataset by unique ID "INSTNM" should provide consistent numbers for Title IV column. 
+
+```{r}
+#View summary of the datatypes
+glimpse(dat)
+
+```
+
+```{r}
+#View summary of data
+summary(dat)
+```
+
+
+```{r}
+#Filter all of the dataset at OPEFLAG to drop none IV schools
+#Drop all duplicated rows by school name 
+dat<- dat %>% 
+      filter( OPEFLAG.x == 1) %>%
+      distinct(INSTNM, .keep_all = TRUE)
+```
+
+
+```{r}
+#Combine similar columns to consense the dataset down
+dat <- dat %>% 
+  mutate(NPT_COM = coalesce(NPT4_PUB.y, NPT4_PRIV.y))%>% 
+  mutate(NUM_COM = coalesce(NUM4_PUB.y, NUM4_PRIV.y))
+```
+
+
+```{r}
+data16 <- select(dat, "UNITID.y" , "COSTT4_A.y", "UGDS.y", "TUITFTE.y", "NPT_COM", "NUM_COM")
+
+```
+
+
+```{r eval=FALSE, include=FALSE}
+
+
+```
+
+```{r}
+#loop through every column and transform into numeric values
+
+cols.num <- c("UNITID.y" , "COSTT4_A.y", "UGDS.y", "TUITFTE.y", "NPT_COM", "NUM_COM")
+data16[cols.num] <- sapply(data16[cols.num],as.numeric)
+sapply(data16, class)
+```
+Now what should we do with the rest of these NA values? One approach would be to simply drop all missing values.  A second approach would be to impute missing column values by the column value mean. Both methods are imperfect, but for this dataset, I’ve chosen to assign all missing values by the mean of the column, since dropping all of the columns with missing/ NA values could potentially cause the regression model underperform
+
+```{r}
+#Create function to impute missing values 
+
+impute <- function(x){
+  na <- is.na(x)
+  n.missing <- sum(na)
+  a.obs <- x[!na]
+  imputed <- x
+  imputed[na] <- sample(a.obs, n.missing, replace = TRUE)
+  return(imputed)
+}
+
+random.impute.data.frame <- function(data16, cols){
+  nms <-names(data16)
+  for(col in cols){
+    name <- paste(nms[col],"imputed", sep = "")
+    data16[name] <- impute(data16[,col])
+  }
+  data16
+}
+```
+
+
+
+```{r}
+#Run imputation function  
+data16 <- random.impute.data.frame(data16, c(1:6))
+
+```
+
+```{r}
+#Slice out first 6 columns 
+data16 <- data16[7:12]
+
+```
+
+
+
+```{r}
+#Change ID into row
+data16 <- column_to_rownames(data16, "UNITID.yimputed")
+
+```
+
+```{r eval=FALSE, include=FALSE}
+
+
+```
+
+Scaling the data, so smaller response variables have a numeric range that is somewhat relative to the rest of the data.
+```{r}
+
+data16 <- scale(data16)
+```
+
+```{r}
+#Opitmal number of cluster 
+fviz_nbclust(data16, kmeans, 
+             method =  "gap_stat")
+```
+
+The Optimal number of clusters is 3. However, when running this through are scatterplot to hopefully create separated grouping the clusters seem to be stacked almost together. Both of my alma’s mater below reside in group 1.
+ 
+```{r}
+Clarax <- clara(data16,3)
+fviz_cluster(Clarax, stand = FALSE, geom = "point" , ellipse = F)
+
+```
+
+
+```{r}
+Clarax[["clustering"]][["199306"]]
+Clarax[["clustering"]][["201548"]]
+Clarax
+
+
+
+```
+ 
+```{r}
+
+data_cluster <- Clarax$clustering
+data1 = as.data.frame(data16[data_cluster ==1,])
+#data1=rownames_to_column(data1)
+```
+
+```{r eval=FALSE, include=FALSE}
+
+```
+ 
+```{r}
+#cor(data1)
+summary(data1)
+```
+```{r}
+#Searching for corrolation bewtween the data. I want to check for pairwise correlation bewtween two more var
+pairs(data1)
+```
+
+Train the model test. Split data into train and test sets for the model. The train data is used to train the model and the test set is to determine its accuracy. 
+```{r}
+#making the process repetable 
+#spliting the data into training & testing
+
+set.seed(1234)
+ind <- sample(2, nrow(data1), replace =TRUE, prob = c(0.7, 0.3))
+training <- data1[ind==1,]
+testing <- data1[ind==2,]
+
+```
+
+```{r}
+head(training)
+```
+
+```{r}
+head(testing)
+```
+```{r}
+
+cbind(summary(training$COSTT4_A.yimputed) , summary(testing$UGDS.yimputed))
+```
+Model doesn't seem like our variables have a high correlation with NUM_COM. 
+```{r}
+#multiple Linear Regression 
+#4 features
+#Compute the model and make UGDS the dependent
+
+
+model <- lm(NUM_COMimputed~COSTT4_A.yimputed + TUITFTE.yimputed + NPT_COMimputed, data=training )
+model
+
+```
+
+```{r}
+#Model Diagnostics 
+summary(model)
+```
+
+```{r}
+#Plot to visualize   corr 
+plot(NUM_COMimputed~COSTT4_A.yimputed + TUITFTE.yimputed + NPT_COMimputed, data=training )
+abline(model,col ="blue")
+```
+```{r}
+
+plot(model)
+
+
+```
+
+```{r eval=FALSE, include=FALSE}
+
+```
+
+```{r}
+ model[["fitted.values"]][["201548"]] #Capital 
+
+  
+```
+
+```{r}
+#Dropping Cost of tuition column by 7%
+data1$COSTT4_A.yimputed <- (data1$COSTT4_A.yimputed * .7)
+summary(data1)
+```
+
+
+```{r}
+set.seed(1234)
+ind <- sample(2, nrow(data1), replace =TRUE, prob = c(0.7, 0.3))
+training <- data1[ind==1,]
+testing <- data1[ind==2,]
+```
+
+```{r}
+
+model <- lm(NUM_COMimputed~COSTT4_A.yimputed + NPT_COMimputed, data=training )
+model
+```
+
+
+```{r}
+#Model Diagnostics 
+summary(model)
+```
+Conclusion 
+Looking at the model adjusted R-squared is at 9% which its more than safe to assume this model will not be making any predictions today. When the column cost of tuition is decreased by 7% the adjusted R-squared is 8%. This model will surly need to be adjusted before prediction. 
+
+This model accuracy is low to be trust to make accurate predictions. Further test needs to be created to improve the accuracy. Examples of this could be through adding new features to the model or taking some away. Another could be running a few more test to find columns that have a higher relation between one another
+
+
+```{r eval=FALSE, include=FALSE}
+
+```
+
+
+
+
+
