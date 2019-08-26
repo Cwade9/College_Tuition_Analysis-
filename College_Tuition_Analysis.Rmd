@@ -1,17 +1,13 @@
 ---
 title: "R Notebook"
-output: html_notebook
+output:
+  pdf_document: default
+  html_document: default
 ---
 
 
 
-```{r eval=FALSE, include=FALSE}
-plot(cars)
-```
 
-
-```{r eval=FALSE, include=FALSE}
-```
 
 
 Getting Started 
@@ -145,7 +141,7 @@ fviz_nbclust(data16, kmeans,
              method =  "gap_stat")
 ```
 
-The Optimal number of clusters is 3. However, when running this through are scatterplot to hopefully create separated grouping the clusters seem to be stacked almost together. Both of my alma’s mater below reside in group 1.
+The Optimal number of clusters is 3. However, when running this through a scatterplot to hopefully create separated clusters. The clusters seem to be stacked almost together, which isnt ideal to when trying to find hidden structre. Both of my alma’s mater below reside in group 1.
  
 ```{r}
 Clarax <- clara(data16,3)
@@ -179,7 +175,7 @@ data1 = as.data.frame(data16[data_cluster ==1,])
 summary(data1)
 ```
 ```{r}
-#Searching for corrolation bewtween the data. I want to check for pairwise correlation bewtween two more var
+#Searching for corrolation between the data. I want to check for pairwise correlation bewtween two more var
 pairs(data1)
 ```
 
@@ -273,13 +269,12 @@ summary(model)
 Conclusion 
 Looking at the model adjusted R-squared is at 9% which its more than safe to assume this model will not be making any predictions today. When the column cost of tuition is decreased by 7% the adjusted R-squared is 8%. This model will surly need to be adjusted before prediction. 
 
-This model accuracy is low to be trust to make accurate predictions. Further test needs to be created to improve the accuracy. Examples of this could be through adding new features to the model or taking some away. Another could be running a few more test to find columns that have a higher relation between one another
+This model accuracy is low to be trust to make accurate predictions. Further test needs to be created to improve the accuracy. Examples of this could be through adding new features to the model or taking some away. Another could be running a few more test to find columns that have a higher relation between one another.
 
 
-```{r eval=FALSE, include=FALSE}
-
+```{r setup, include = FALSE, cache = FALSE}  
+knitr::opts_chunk$set(error = TRUE)  
 ```
-
 
 
 
