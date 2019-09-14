@@ -10,7 +10,7 @@ output:
 
 
 
-Getting Started 
+#Getting Started 
 Needed to first take the time to look at the datasets via the data dictionary conversion download to understand the meaning of each record column. 
 
 
